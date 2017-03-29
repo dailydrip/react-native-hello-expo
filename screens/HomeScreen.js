@@ -10,8 +10,8 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { Contacts } from "expo";
 import Exponent from "expo";
+import { Contacts, Constants, Location, Permissions } from "expo";
 
 import { MonoText } from "../components/StyledText";
 
@@ -27,7 +27,9 @@ export default class HomeScreen extends React.Component {
     let contacts = [{ name: "Loading..." }];
     this.ds = new ListView.DataSource({ rowHasChanged: (r1, r2) => r1 !== r2 });
     this.state = {
-      dataSource: this.ds.cloneWithRows(contacts)
+      dataSource: this.ds.cloneWithRows(contacts),
+      location: null,
+      errorMessage: null
     };
   }
 
@@ -41,8 +43,38 @@ export default class HomeScreen extends React.Component {
     });
   };
 
+  _getLocationAsync = async () => {
+    let { status } = await Permissions.askAsync(Permissions.LOCATION);
+    if (status !== "granted") {
+      this.setState({
+        errorMessage: "Permission to access location was denied"
+      });
+    }
+
+    let location = await Location.getCurrentPositionAsync({});
+    this.setState({ location });
+  };
+
+  componentWillMount() {
+    if (Platform.OS === "android" && !Constants.isDevice) {
+      this.setState({
+        errorMessage: "Oops, this will not work on Sketch in an Android emulator. Try it on your device!"
+      });
+    } else {
+      this._getLocationAsync();
+    }
+  }
+
   render() {
     this.showFirstContactAsync();
+
+    let location = "Waiting..";
+    if (this.state.errorMessage) {
+      location = this.state.errorMessage;
+    } else if (this.state.location) {
+      location = JSON.stringify(this.state.location);
+    }
+
     return (
       <View style={styles.container}>
         <ScrollView
@@ -67,6 +99,7 @@ export default class HomeScreen extends React.Component {
               renderRow={rowData => <Text>{rowData.name}</Text>}
             />
           </View>
+          <Text>{location}</Text>
         </ScrollView>
       </View>
     );
